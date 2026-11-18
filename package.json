@@ -1,0 +1,22 @@
+{
+  "name": "dirty-data-variance-studio",
+  "version": "1.0.0",
+  "description": "DataScrub & Variance Studio — Trạm Làm Sạch Dữ Liệu Bẩn Đặc Thù Việt Nam, Tự Động Giải Phẫu Biến Động Doanh Số (Price-Volume-Mix Bridge & Key-Driver), SQLite Workbench & Xuất Báo Cáo Sạch 1-Chạm (.XLSX)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --experimental-sqlite --no-warnings server.js",
+    "test": "node --experimental-sqlite --no-warnings --test tests/studio.test.js"
+  },
+  "keywords": [
+    "data-cleaning",
+    "fuzzy-matching",
+    "vietnamese-data",
+    "price-volume-mix",
+    "variance-analysis",
+    "key-driver-bridge",
+    "sqlite-workbench",
+    "xlsx-report"
+  ],
+  "author": "AI_App Ecosystem",
+  "license": "MIT"
+}

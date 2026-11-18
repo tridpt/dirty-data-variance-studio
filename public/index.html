@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DataScrub & Variance Studio — Trạm Làm Sạch Dữ Liệu Bẩn & Giải Phẫu Biến Động Doanh Số</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <!-- TOP COMMAND BAR -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-logo" aria-hidden="true">🧼📉</div>
+      <div>
+        <div class="brand-title-row">
+          <h1>DataScrub &amp; Variance Studio</h1>
+          <span class="version-pill">DA Weapon • Port 4195</span>
+        </div>
+        <p class="brand-sub">Lọc dữ liệu bẩn đặc thù Việt Nam • Giải phẫu Price–Volume–Mix &amp; Key-Driver • SQLite &amp; Recipe 1-Chạm</p>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <div class="dataset-switcher-wrap">
+        <label for="datasetSelect" class="sr-only">Chọn bộ dữ liệu ngành</label>
+        <select id="datasetSelect" class="control-select" title="Chuyển nhanh 5 bộ dữ liệu bẩn thực chiến đa ngành"></select>
+      </div>
+
+      <button id="btnOpenUpload" class="btn btn-secondary" title="Tải lên tệp .XLSX, .CSV, .TSV, .JSON hoặc dán trực tiếp từ Excel">
+        📥 Nhập Excel / CSV / Dán Bảng
+      </button>
+
+      <button id="btnOpenSaveRecipe" class="btn btn-secondary" title="Lưu quy trình làm sạch & ánh xạ cột hiện tại thành Recipe">
+        ⚡ Lưu Recipe
+      </button>
+
+      <div class="export-group">
+        <a id="btnExportXlsx" href="/api/export/report-xlsx" class="btn btn-primary" title="Xuất báo cáo Excel chuẩn 4 Sheet (Tổng quan Sếp + PVM + Bảng Sạch + Audit Log)">
+          📤 Xuất Báo Cáo .XLSX (4-Sheet)
+        </a>
+        <a id="btnExportCsv" href="/api/export/clean-csv" class="btn btn-ghost" title="Tải bảng sạch CSV chuẩn UTF-8 BOM mở thẳng trên Excel không lỗi font">
+          📄 CSV Sạch
+        </a>
+      </div>
+
+      <button id="btnThemeToggle" class="btn btn-icon" title="Chuyển đổi giao diện Tối / Sáng">☀️</button>
+    </div>
+  </header>
+
+  <!-- ACTIVE FILE & SHEET BANNER -->
+  <section class="context-bar">
+    <div class="context-left">
+      <span class="industry-tag" id="activeIndustryTag">Bán lẻ / FMCG</span>
+      <strong id="activeDatasetTitle" class="active-title">Đang tải dữ liệu...</strong>
+      <span id="sheetSelectorWrap" class="sheet-selector-wrap hidden">
+        <span>Sheet:</span>
+        <select id="sheetSelect" class="control-select compact"></select>
+      </span>
+      <span id="activeRecipeBadge" class="recipe-active-badge hidden"></span>
+    </div>
+    <div class="context-right">
+      <a id="btnDownloadDirtySample" href="/api/datasets/download-raw-xlsx?datasetId=retail_fmcg" class="link-chip" title="Tải file Excel bẩn gốc này về máy để mở xem trên Excel hoặc kéo-thả thử">
+        ⬇️ Tải file Excel bẩn mẫu (.xlsx)
+      </a>
+      <button id="btnSimulateNextMonthTop" class="link-chip accent" title="Giả lập tuần/tháng sau phòng ban gửi file kỳ mới và chạy tự động bằng Recipe trong 1 chạm">
+        🚀 Thử thả File Kỳ Mới (3 giây)
+      </button>
+    </div>
+  </section>
+
+  <!-- 4-CARD KPI & DATA HYGIENE RIBBON -->
+  <section class="kpi-ribbon" id="kpiRibbon">
+    <div class="kpi-card">
+      <div class="kpi-label">🧼 Điểm Sạch Dữ Liệu (Health Score)</div>
+      <div class="kpi-main" id="kpiHealthScore">--</div>
+      <div class="health-bar-track"><div class="health-bar-fill" id="kpiHealthBar" style="width: 0%"></div></div>
+      <div class="kpi-sub" id="kpiHealthSub">Đang kiểm toán các cột...</div>
+    </div>
+
+    <div class="kpi-card warning-tint">
+      <div class="kpi-label">🪤 Bẫy Báo Cáo Bẩn (Nếu Không Lọc)</div>
+      <div class="kpi-main" id="kpiDirtyTrap">--</div>
+      <div class="kpi-sub" id="kpiDirtyTrapSub">Đang đối chiếu File Bẩn vs File Sạch...</div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-label" id="kpiVarianceLabel">📉 Biến Động Chỉ Số Thực Tế</div>
+      <div class="kpi-main" id="kpiVarianceDelta">--</div>
+      <div class="kpi-sub" id="kpiVarianceSub">--</div>
+    </div>
+
+    <div class="kpi-card highlight-tint">
+      <div class="kpi-label">🎯 Nguyên Nhân &amp; Thủ Phạm Số 1</div>
+      <div class="kpi-main kpi-driver-headline" id="kpiTopDriver">--</div>
+      <div class="kpi-sub" id="kpiTopDriverSub">--</div>
+    </div>
+  </section>
+
+  <!-- MAIN NAVIGATION TABS -->
+  <nav class="studio-tabs" role="tablist">
+    <button class="tab-btn active" data-tab="cleaner" role="tab">
+      🧼 1. Trạm Lọc Dữ Liệu Bẩn VN <span class="tab-badge" id="badgeIssuesCount">0</span>
+    </button>
+    <button class="tab-btn" data-tab="variance" role="tab">
+      📉 2. Giải Phẫu Biến Động (PVM &amp; Key-Drivers) <span class="tab-badge accent" id="badgeVariancePct">--</span>
+    </button>
+    <button class="tab-btn" data-tab="sql" role="tab">
+      🗄️ 3. SQLite Workbench <span class="tab-badge">4 Bảng</span>
+    </button>
+    <button class="tab-btn" data-tab="recipes" role="tab">
+      ⚡ 4. Kho Recipe 1-Chạm <span class="tab-badge" id="badgeRecipeCount">0</span>
+    </button>
+  </nav>
+
+  <!-- WORKSPACE PANELS -->
+  <main class="workspace">
+    <!-- ================================================================== -->
+    <!-- TAB 1: TRẠM LỌC DỮ LIỆU BẨN ĐẶC THÙ VIỆT NAM                       -->
+    <!-- ================================================================== -->
+    <section id="tab-cleaner" class="tab-panel active">
+      <div class="cleaner-controls-card">
+        <div class="card-header-inline">
+          <div>
+            <h2>⚙️ Cấu Hình Đường Ống Làm Sạch Đặc Thù Việt Nam</h2>
+            <p class="muted">Mọi thay đổi quy tắc sẽ tự động chạy lại làm sạch, cập nhật SQLite và tính lại cầu nối biến động PVM.</p>
+          </div>
+          <div class="header-actions-row">
+            <button id="btnToggleMappingDrawer" class="btn btn-secondary btn-sm">🧭 Ánh xạ Vai trò Cột</button>
+            <button id="btnJumpToVariance" class="btn btn-primary btn-sm">Xem Giải phẫu Biến động ➔</button>
+          </div>
+        </div>
+
+        <div class="rules-grid">
+          <label class="rule-toggle">
+            <input type="checkbox" id="chkDates" checked />
+            <span>
+              <strong>Chuẩn hóa Ngày lệch định dạng</strong>
+              <small>Gộp dd/mm, cứu ngày Mỹ mm/dd lạc dòng &amp; Excel Serial</small>
+            </span>
+          </label>
+
+          <label class="rule-toggle">
+            <input type="checkbox" id="chkPhones" checked />
+            <span>
+              <strong>Chuẩn hóa SĐT Việt Nam</strong>
+              <small>+84 ➔ 0, khôi phục số 0 mất &amp; đổi 11 số ➔ 10 số</small>
+            </span>
+          </label>
+
+          <label class="rule-toggle">
+            <input type="checkbox" id="chkNumbers" checked />
+            <span>
+              <strong>Đọc Tiền tệ &amp; Số kiểu VN</strong>
+              <small>"12.500.000 đ", "8,4 tr", "1,2 tỷ", khử #DIV/0!</small>
+            </span>
+          </label>
+
+          <label class="rule-toggle">
+            <input type="checkbox" id="chkFuzzy" checked />
+            <span>
+              <strong>Fuzzy Matching &amp; Địa danh VN</strong>
+              <small>Gom "TP.HCM/SG/Sài Gòn" &amp; tên NV/SP sai dấu</small>
+            </span>
+          </label>
+
+          <div class="rule-select-box">
+            <label for="rngFuzzy">Độ nhạy gom tên Fuzzy: <strong id="lblFuzzyVal">84%</strong></label>
+            <input type="range" id="rngFuzzy" min="0.74" max="0.95" step="0.01" value="0.84" />
+          </div>
+
+          <div class="rule-select-box">
+            <label for="selDedupe">Xử lý dòng trùng lặp</label>
+            <select id="selDedupe" class="control-select compact">
+              <option value="remove_hidden">Loại bỏ cả Trùng ngầm &amp; Trùng 100%</option>
+              <option value="remove_exact">Chỉ loại bỏ dòng Trùng khít 100%</option>
+              <option value="flag_only">Chỉ gắn cờ cảnh báo, giữ nguyên dòng</option>
+              <option value="off">Tắt kiểm tra trùng lặp</option>
+            </select>
+          </div>
+
+          <div class="rule-select-box">
+            <label for="selOutlier">Xử lý Ngoại lai (Gõ dư số 0 / Đột biến)</label>
+            <select id="selOutlier" class="control-select compact">
+              <option value="median_impute">Thay bằng Trung vị mặt hàng (Khuyên dùng)</option>
+              <option value="winsorize">Kẹp biên trần IQR (Winsorize)</option>
+              <option value="drop_rows">Loại bỏ dòng ngoại lai khỏi bảng sạch</option>
+              <option value="flag_only">Chỉ gắn cờ cảnh báo, giữ số gốc</option>
+              <option value="off">Tắt lọc ngoại lai</option>
+            </select>
+          </div>
+
+          <div class="rule-select-box">
+            <label for="selDatePref">Ưu tiên định dạng ngày nhập nhằng</label>
+            <select id="selDatePref" class="control-select compact">
+              <option value="AUTO_VN">Thông minh: Chuẩn VN + Tự cứu MM/DD lạc tháng</option>
+              <option value="STRICT_DDMM">Ép cứng 100% DD/MM/YYYY (Việt Nam)</option>
+              <option value="US_MMDD">Ép cứng 100% MM/DD/YYYY (Chuẩn Mỹ)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- COLLAPSIBLE COLUMN ROLE MAPPING -->
+        <div id="mappingDrawer" class="mapping-drawer hidden">
+          <h3>🧭 Ánh Xạ Vai Trò Cột (Tự động nhận diện — có thể tùy chỉnh cho mọi ngành)</h3>
+          <div class="mapping-grid">
+            <div>
+              <label for="mapDateCol">📅 Cột Ngày / Thời gian</label>
+              <select id="mapDateCol" class="control-select compact"></select>
+            </div>
+            <div>
+              <label for="mapMetricCol">💰 Chỉ số phân tích chính (Doanh thu / Chi phí)</label>
+              <select id="mapMetricCol" class="control-select compact"></select>
+            </div>
+            <div>
+              <label for="mapQtyCol">📦 Cột Sản lượng / Số lượng (Cho PVM)</label>
+              <select id="mapQtyCol" class="control-select compact"></select>
+            </div>
+            <div>
+              <label for="mapItemCol">🏷️ Cột Mặt hàng / Hạng mục (Tính Mix)</label>
+              <select id="mapItemCol" class="control-select compact"></select>
+            </div>
+            <div>
+              <label for="mapPhoneCol">📱 Cột Số điện thoại</label>
+              <select id="mapPhoneCol" class="control-select compact"></select>
+            </div>
+            <div>
+              <label for="mapIdCol">🔑 Cột Mã đơn / Mã hồ sơ</label>
+              <select id="mapIdCol" class="control-select compact"></select>
+            </div>
+          </div>
+          <div class="mapping-footer">
+            <button id="btnApplyMapping" class="btn btn-primary btn-sm">Áp dụng Ánh xạ Cột</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- COLUMN PROFILING CARDS -->
+      <div class="section-block">
+        <div class="section-head">
+          <h3>📊 Hồ Sơ Sức Khỏe Từng Cột &amp; Giảm Phân Mảnh Danh Mục</h3>
+          <span class="muted" id="cleanerTimingLabel"></span>
+        </div>
+        <div id="columnHealthGrid" class="col-health-grid"></div>
+      </div>
+
+      <!-- FUZZY CLUSTERING & OUTLIERS 2-COLUMN -->
+      <div class="two-col-layout">
+        <div class="panel-card">
+          <div class="section-head">
+            <h3>🧩 Các Cụm Tên Viết Sai Đã Gom Về 1 Chuẩn (Fuzzy Matching)</h3>
+            <span class="pill-count" id="fuzzyClusterCount">0 cụm</span>
+          </div>
+          <p class="muted small-mb">Bạn có thể sửa lại "Tên chuẩn đích" của bất kỳ cụm nào bên dưới để nạp vào Recipe riêng của công ty:</p>
+          <div id="fuzzyClustersList" class="fuzzy-list"></div>
+        </div>
+
+        <div class="panel-card">
+          <div class="section-head">
+            <h3>🚨 Giá Trị Ngoại Lai &amp; Dòng Trùng Ngầm Bắt Được</h3>
+            <span class="pill-count danger" id="anomalySummaryCount">0 bất thường</span>
+          </div>
+          <p class="muted small-mb">Kiểm tra chéo Đơn giá ngầm định (Giá trị / Số lượng) theo từng mặt hàng để bắt trúng lỗi gõ dư số 0:</p>
+          <div id="outliersAndDupesList" class="anomaly-list"></div>
+        </div>
+      </div>
+
+      <!-- INTERACTIVE BEFORE / AFTER DIFF DATA GRID -->
+      <div class="panel-card">
+        <div class="grid-toolbar">
+          <div>
+            <h3>🔍 Bảng Đối Chiếu Trước &amp; Sau Làm Sạch (Cell-Level Audit Diff)</h3>
+          </div>
+          <div class="grid-filters">
+            <div class="filter-pills" id="diffFilterPills">
+              <button class="pill-btn active" data-filter="all">Tất cả dòng</button>
+              <button class="pill-btn" data-filter="changed">✨ Đã sửa lỗi</button>
+              <button class="pill-btn" data-filter="date">📅 Ngày lệch</button>
+              <button class="pill-btn" data-filter="fuzzy">🧩 Gom tên Fuzzy</button>
+              <button class="pill-btn" data-filter="phone">📱 SĐT VN</button>
+              <button class="pill-btn" data-filter="duplicate">👯 Trùng ngầm</button>
+              <button class="pill-btn" data-filter="outlier">🚨 Ngoại lai</button>
+            </div>
+            <input type="search" id="gridSearchInput" class="control-input compact" placeholder="Tìm nhanh chi nhánh, NV, mã..." />
+            <label class="inline-check">
+              <input type="checkbox" id="chkShowDiffInline" checked />
+              <span>Hiển thị vết sửa (Bẩn ➔ Sạch)</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="table-scroll-wrap">
+          <table class="data-table" id="cleanerDiffTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="table-footer" id="cleanerTableFooter"></div>
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- TAB 2: GIẢI PHẪU BIẾN ĐỘNG (PVM WATERFALL & KEY-DRIVER STUDIO)     -->
+    <!-- ================================================================== -->
+    <section id="tab-variance" class="tab-panel">
+      <!-- PERIOD & POLARITY BAR -->
+      <div class="variance-toolbar-card">
+        <div class="variance-selectors">
+          <div class="v-field">
+            <label for="selGranularity">Độ mịn thời gian</label>
+            <select id="selGranularity" class="control-select compact">
+              <option value="month">Theo Tháng (YYYY-MM)</option>
+              <option value="week">Theo Tuần ISO (YYYY-Www)</option>
+              <option value="quarter">Theo Quý (YYYY-Qq)</option>
+            </select>
+          </div>
+          <div class="v-field">
+            <label for="selPeriod0">Kỳ gốc (Period 0)</label>
+            <select id="selPeriod0" class="control-select compact"></select>
+          </div>
+          <div class="v-arrow">➔</div>
+          <div class="v-field">
+            <label for="selPeriod1">Kỳ so sánh (Period 1)</label>
+            <select id="selPeriod1" class="control-select compact"></select>
+          </div>
+          <div class="v-field">
+            <label for="selPolarity">Bản chất chỉ số</label>
+            <select id="selPolarity" class="control-select compact">
+              <option value="higher_is_better">📈 Doanh thu / Sản lượng (Tăng = Tốt)</option>
+              <option value="lower_is_better">🛡️ Chi phí / Lương OT / Lỗi (Giảm = Tốt)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="period-trend-mini" id="periodTrendMini"></div>
+      </div>
+
+      <!-- WATERFALL CHART + EXECUTIVE MEMO -->
+      <div class="variance-hero-grid">
+        <div class="panel-card waterfall-card">
+          <div class="section-head">
+            <div>
+              <h3>🌊 Cầu Nối Biến Động Price – Volume – Mix (PVM Bridge)</h3>
+              <p class="muted" id="pvmSubtitle">Bóc tách chính xác 100% nguyên nhân thay đổi giữa 2 kỳ (Sai số dư = 0)</p>
+            </div>
+            <span class="exact-math-badge" id="pvmExactBadge">✓ Khớp toán học 100%</span>
+          </div>
+
+          <div id="waterfallSvgContainer" class="waterfall-svg-wrap"></div>
+          <div id="pvmCardsStrip" class="pvm-cards-strip"></div>
+        </div>
+
+        <div class="panel-card memo-card">
+          <div class="section-head">
+            <div>
+              <h3>📝 Bản Giải Trình Gửi Sếp (30 Giây)</h3>
+              <p class="muted">Tự động tổng hợp lập luận từ dữ liệu sạch, sẵn sàng dán vào Zalo / Teams / Email</p>
+            </div>
+            <button id="btnCopyMemo" class="btn btn-primary btn-sm">📋 Copy Báo Cáo</button>
+          </div>
+          <pre id="executiveMemoBox" class="memo-pre"></pre>
+          <div id="dirtyTrapCallout" class="dirty-trap-callout"></div>
+        </div>
+      </div>
+
+      <!-- MULTI-DIMENSION KEY DRIVERS -->
+      <div class="section-block">
+        <div class="section-head">
+          <div>
+            <h3>🎯 Chỉ Đích Danh Top Kéo Xuống &amp; Top Kéo Lên Theo Từng Chiều Quản Trị</h3>
+            <p class="muted">💡 <strong>Mẹo thực chiến:</strong> Bấm vào bất kỳ Chi nhánh / Nhân viên / Kênh nào bên dưới để chạy <em>Giải Phẫu Chéo Tầng 2</em> ngay bên dưới!</p>
+          </div>
+        </div>
+        <div id="dimensionDriversGrid" class="drivers-grid"></div>
+      </div>
+
+      <!-- 2-LEVEL CROSS DRILLDOWN -->
+      <div class="panel-card deep-dive-card" id="deepDiveCard">
+        <div class="section-head">
+          <div>
+            <h3 id="deepDiveTitle">🕵️ Giải Phẫu Chéo Tầng 2 (Root-Cause Spotlight)</h3>
+            <p class="muted" id="deepDiveSubtitle">Mổ xẻ nguyên nhân bên trong đơn vị đang chọn</p>
+          </div>
+        </div>
+        <div id="deepDiveContent" class="deep-dive-content"></div>
+      </div>
+
+      <!-- ITEM-LEVEL PVM TABLE -->
+      <div class="panel-card">
+        <div class="section-head">
+          <h3>📦 Bảng Giải Phẫu Chi Tiết Từng Mặt Hàng / Dịch Vụ (Item-Level PVM Matrix)</h3>
+        </div>
+        <div class="table-scroll-wrap">
+          <table class="data-table" id="pvmBreakdownTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- TAB 3: SQLITE WORKBENCH                                            -->
+    <!-- ================================================================== -->
+    <section id="tab-sql" class="tab-panel">
+      <div class="sql-layout">
+        <aside class="panel-card sql-sidebar">
+          <h3>🗄️ Lược Đồ Kho SQLite</h3>
+          <p class="muted small-mb">Bấm vào tên bảng hoặc cột để chèn nhanh vào trình soạn thảo SQL:</p>
+          <div id="sqlSchemaTree" class="schema-tree"></div>
+        </aside>
+
+        <div class="sql-main">
+          <div class="panel-card">
+            <div class="section-head">
+              <h3>⚡ Mẫu Truy Vấn DA Thực Chiến (Tự động khớp cột dữ liệu đang mở)</h3>
+            </div>
+            <div id="sqlPresetsBar" class="sql-presets-grid"></div>
+
+            <div class="sql-editor-wrap">
+              <textarea id="sqlEditor" class="sql-textarea" spellcheck="false" rows="8" placeholder="SELECT * FROM clean_data LIMIT 50;"></textarea>
+              <div class="sql-editor-actions">
+                <span class="muted">Phím tắt: <kbd>Ctrl</kbd> + <kbd>Enter</kbd> để chạy truy vấn</span>
+                <div class="btn-row">
+                  <button id="btnExportSqlCsv" class="btn btn-ghost btn-sm">📄 Xuất CSV kết quả</button>
+                  <button id="btnExportSqlXlsx" class="btn btn-secondary btn-sm">📊 Xuất .XLSX kết quả</button>
+                  <button id="btnRunSql" class="btn btn-primary btn-sm">▶ Chạy Truy Vấn SQL</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <div class="section-head">
+              <h3>📋 Kết Quả Truy Vấn</h3>
+              <span id="sqlTelemetryBadge" class="pill-count">Chưa chạy</span>
+            </div>
+            <div id="sqlErrorBanner" class="error-banner hidden"></div>
+            <div class="table-scroll-wrap">
+              <table class="data-table" id="sqlResultTable">
+                <thead></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================== -->
+    <!-- TAB 4: KHO RECIPE 1-CHẠM & TỰ ĐỘNG HÓA 3 GIÂY                      -->
+    <!-- ================================================================== -->
+    <section id="tab-recipes" class="tab-panel">
+      <div class="recipe-hero-grid">
+        <div class="panel-card dropzone-recipe-card" id="quickBatchDropzone">
+          <div class="dropzone-inner">
+            <div class="dropzone-icon">⚡📂</div>
+            <h3>Trạm Thả File Tuần Mới — Ra Báo Cáo Sạch Sau 3 Giây</h3>
+            <p class="muted">
+              Chọn 1 Recipe đã lưu bên dưới, sau đó <strong>kéo-thả file Excel (.xlsx) / CSV kỳ mới</strong> vào khung này (hoặc bấm nút giả lập bên dưới) để tự động chạy toàn bộ quy trình!
+            </p>
+            <div class="recipe-runner-controls">
+              <select id="selBatchRecipe" class="control-select"></select>
+              <label class="btn btn-secondary">
+                📂 Chọn File Kỳ Mới (.xlsx/.csv)
+                <input type="file" id="batchFileInput" accept=".xlsx,.csv,.tsv,.json" hidden />
+              </label>
+              <button id="btnSimulateNextBatch" class="btn btn-primary">
+                🚀 Giả lập nhận File Tháng 11 &amp; Chạy 1-Chạm
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <h3>💾 Lưu Quy Trình Đang Tinh Chỉnh Thành Recipe Mới</h3>
+          <p class="muted small-mb">Lưu trọn bộ quy tắc chuẩn hóa ngày/SĐT, ngưỡng Fuzzy, từ điển tên chuẩn riêng và cột PVM:</p>
+          <form id="formSaveRecipe" class="recipe-form">
+            <label>
+              <span>Tên Recipe (VD: Báo cáo Doanh số Tuần Khối Bán lẻ)</span>
+              <input type="text" id="inpRecipeName" class="control-input" required placeholder="Nhập tên Recipe dễ nhớ..." />
+            </label>
+            <label>
+              <span>Ngành / Phòng ban áp dụng</span>
+              <input type="text" id="inpRecipeIndustry" class="control-input" placeholder="VD: Kinh doanh / Tài chính / Kho vận" />
+            </label>
+            <label>
+              <span>Ghi chú quy trình</span>
+              <textarea id="inpRecipeDesc" class="control-input" rows="2" placeholder="Mô tả ngắn các bước làm sạch của Recipe này..."></textarea>
+            </label>
+            <button type="submit" class="btn btn-primary">💾 Lưu vào Kho Recipe</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-head">
+          <h3>🗂️ Danh Sách Recipe Sẵn Sàng Tái Sử Dụng</h3>
+        </div>
+        <div id="recipesGallery" class="recipes-gallery"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL UPLOAD FILE / PASTE CLIPBOARD EXCEL -->
+  <div id="uploadModal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>📥 Nhập Dữ Liệu Bẩn (.XLSX, .CSV, .TSV, .JSON hoặc Dán từ Excel)</h2>
+        <button id="btnCloseUpload" class="btn btn-icon">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div id="modalDropArea" class="upload-drop-area">
+          <div class="dropzone-icon">📊</div>
+          <p><strong>Kéo và thả tệp Excel (.xlsx) hoặc CSV/TSV/JSON vào đây</strong></p>
+          <p class="muted">Tự động bỏ qua dòng tiêu đề thừa đầu trang Excel &amp; tự nhận diện dấu phẩy `,` / chấm phẩy `;`</p>
+          <label class="btn btn-primary mt-sm">
+            Chọn tệp từ máy tính
+            <input type="file" id="modalFileInput" accept=".xlsx,.csv,.tsv,.txt,.json" hidden />
+          </label>
+        </div>
+
+        <div class="divider-text"><span>HOẶC DÁN TRỰC TIẾP BẢNG TỪ EXCEL / GOOGLE SHEETS (CTRL + V)</span></div>
+
+        <textarea
+          id="pasteTableArea"
+          class="sql-textarea"
+          rows="6"
+          placeholder="Bôi đen vùng bảng trong Excel (kể cả dòng tiêu đề cột) -> Ctrl+C -> Dán (Ctrl+V) thẳng vào ô này..."
+        ></textarea>
+
+        <div class="modal-row">
+          <label class="flex-1">
+            <span class="muted">Áp dụng ngay Recipe khi tải lên (Tùy chọn):</span>
+            <select id="modalRecipeSelect" class="control-select compact"></select>
+          </label>
+          <button id="btnSubmitPaste" class="btn btn-primary">⚡ Nạp Dữ Liệu Đã Dán</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
